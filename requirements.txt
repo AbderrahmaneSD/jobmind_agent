@@ -1,0 +1,8 @@
+# Agent framework
+langgraph>=1.2,<2.0
+
+# Config (.env loading)
+python-dotenv>=1.2
+
+# Testing
+pytest>=9.0
