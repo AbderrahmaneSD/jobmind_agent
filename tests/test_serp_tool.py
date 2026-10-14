@@ -96,3 +96,4 @@ def test_search_raises_on_api_error(monkeypatch):
 def test_search_requires_api_key():
     with pytest.raises(RuntimeError, match="SERPAPI_API_KEY"):
         search_google_jobs("ML Engineer", "Toronto", 10, api_key="")
+        
