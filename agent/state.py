@@ -14,7 +14,8 @@ class JobListing(TypedDict):
     company: str
     location: str
     url: str
-    source: str                         # "google_jobs" | "company_page" | ...
+    source: str                         # platform it was posted on, e.g. "LinkedIn"
+    description: str                    # full JD text if the API gives it, else ""
     posted_date: Optional[str]          # ISO "2026-09-28", None if unknown
     expiry_date: Optional[str]          # ISO "2026-10-28", None if unknown
     days_since_posted: Optional[int]    # computed in Python from posted_date

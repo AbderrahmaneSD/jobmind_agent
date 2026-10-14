@@ -1,6 +1,9 @@
 # Agent framework
 langgraph>=1.2,<2.0
 
+# HTTP calls (SerpAPI)
+requests>=2.31
+
 # Config (.env loading)
 python-dotenv>=1.2
 

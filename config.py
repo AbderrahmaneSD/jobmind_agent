@@ -21,6 +21,7 @@ EMBED_MODEL = "all-MiniLM-L6-v2"   # same embedding model as ml-research-assista
 
 # ── Search ───────────────────────────────────────────────────────────────────
 DEFAULT_NUM_RESULTS = 10           # how many job listings to search for
+SEARCH_COUNTRY = "ca"              # Google country code (ca = Canada)
 
 # ── Scoring ──────────────────────────────────────────────────────────────────
 # Weights of the 4 fit dimensions. They must sum to 1.0.
