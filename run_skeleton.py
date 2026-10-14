@@ -23,3 +23,8 @@ for a in final["analyses"]:
           f"[{a['urgency']}, posted {l['days_since_posted']}d ago, expired={a['is_expired']}]  "
           f"apply={a['worth_applying']}")
 print(f"\nShortlisted: {len(final['shortlist'])}   Applications: {len(final['applications'])}")
+
+if final["errors"]:
+    print("\nErrors:")
+    for err in final["errors"]:
+        print(" -", err)

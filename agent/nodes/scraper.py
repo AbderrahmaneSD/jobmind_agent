@@ -1,17 +1,22 @@
 """
-scraper.py — Node 2: fetch the full job description text for each listing.
+scraper.py — Node 2: make sure every listing has full job description text.
 
-STUB: returns placeholder text.
-Next step: call tools/scraper_tool.py (requests + BeautifulSoup) per URL.
+Google Jobs (via SerpAPI) usually returns the description already, so we
+reuse it. Only listings without one will need real scraping (later step:
+tools/scraper_tool.py). For now those get empty text and an error note.
 """
 from agent.state import AgentState
 
 
 def scraper_node(state: AgentState) -> dict:
-    # Reads: raw_listings
-    jds = [
-        {"url": job["url"], "jd_text": f"Placeholder JD for {job['title']} at {job['company']}."}
-        for job in state["raw_listings"]
-    ]
-    # Writes: scraped_jds (appended thanks to operator.add)
-    return {"scraped_jds": jds}
+    jds, errors = [], []
+
+    for job in state["raw_listings"]:
+        if job["description"]:
+            jds.append({"url": job["url"], "jd_text": job["description"]})
+        else:
+            # STUB: real scraping comes later
+            jds.append({"url": job["url"], "jd_text": ""})
+            errors.append(f"scraper: no description for {job['title']} @ {job['company']}")
+
+    return {"scraped_jds": jds, "errors": errors}
