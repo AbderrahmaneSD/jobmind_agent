@@ -41,12 +41,28 @@ def parse_posted_at(text: str | None, today: date) -> str | None:
     return (today - timedelta(days=amount * _UNIT_DAYS[unit])).isoformat()
 
 
+def extract_posted_date(raw: dict, today: date) -> str | None:
+    """
+    Google puts the posting age in different places depending on the result:
+    1. detected_extensions.posted_at  (structured, when Google parsed it)
+    2. extensions                     (raw labels, e.g. ["3 days ago", "Full-time"])
+    Try both; return the first one that parses as a date.
+    """
+    candidates = [(raw.get("detected_extensions") or {}).get("posted_at")]
+    candidates += raw.get("extensions") or []
+    for text in candidates:
+        if isinstance(text, str):
+            parsed = parse_posted_at(text, today)
+            if parsed:
+                return parsed
+    return None
+
+
 def to_listing(raw: dict, today: date) -> JobListing:
     """Map one raw SerpAPI job dict to our JobListing schema."""
     apply_options = raw.get("apply_options") or []
     url = apply_options[0]["link"] if apply_options else raw.get("share_link", "")
     via = raw.get("via", "google_jobs").removeprefix("via ").strip()
-    posted_at = (raw.get("detected_extensions") or {}).get("posted_at")
 
     return {
         "title": raw.get("title", ""),
@@ -55,7 +71,7 @@ def to_listing(raw: dict, today: date) -> JobListing:
         "url": url,
         "source": via,
         "description": raw.get("description", ""),
-        "posted_date": parse_posted_at(posted_at, today),
+        "posted_date": extract_posted_date(raw, today),
         "expiry_date": None,        # Google Jobs does not expose an expiry date
         "days_since_posted": None,  # computed later by the Analyzer
     }
@@ -88,14 +104,24 @@ def search_google_jobs(
         "api_key": api_key,
     }
 
-    while len(listings) < num_results:
+    seen: set = set()
+    max_pages = num_results // 10 + 2   # safety cap so we never loop forever
+
+    for _ in range(max_pages):
+        if len(listings) >= num_results:
+            break
         response = requests.get(SERPAPI_URL, params=params, timeout=30)
         data = response.json()
         if response.status_code != 200 or "error" in data:
             raise RuntimeError(f"SerpAPI error: {data.get('error', response.status_code)}")
 
         jobs = data.get("jobs_results", [])
-        listings.extend(to_listing(j, today) for j in jobs)
+        for job in jobs:
+            # Google can repeat a job across pages: skip ones already seen
+            key = job.get("job_id") or (job.get("title"), job.get("company_name"))
+            if key not in seen:
+                seen.add(key)
+                listings.append(to_listing(job, today))
 
         token = (data.get("serpapi_pagination") or {}).get("next_page_token")
         if not jobs or not token:

@@ -9,7 +9,9 @@ from datetime import date
 import pytest
 
 from agent.tools import serp_tool
-from agent.tools.serp_tool import parse_posted_at, to_listing, search_google_jobs
+from agent.tools.serp_tool import (
+    parse_posted_at, extract_posted_date, to_listing, search_google_jobs,
+)
 
 TODAY = date(2026, 10, 4)
 
@@ -51,6 +53,17 @@ def test_to_listing_maps_fields():
     assert listing["expiry_date"] is None
 
 
+def test_posted_date_found_in_extensions():
+    # No detected_extensions.posted_at, but the date sits in the extensions list
+    raw = {**RAW_JOB, "detected_extensions": {}, "extensions": ["Full-time", "5 days ago"]}
+    assert extract_posted_date(raw, TODAY) == "2026-09-29"
+
+
+def test_posted_date_missing_everywhere():
+    raw = {**RAW_JOB, "detected_extensions": {}, "extensions": ["Full-time"]}
+    assert extract_posted_date(raw, TODAY) is None
+
+
 def test_to_listing_falls_back_to_share_link():
     raw = {**RAW_JOB, "apply_options": []}
     assert to_listing(raw, TODAY)["url"] == "https://google.com/share/1"
@@ -65,11 +78,16 @@ class FakeResponse:
         return self._payload
 
 
+def make_jobs(start, count):
+    """Distinct fake jobs, each with its own job_id."""
+    return [{**RAW_JOB, "job_id": f"id{i}", "title": f"Job {i}"} for i in range(start, start + count)]
+
+
 def test_search_follows_pagination(monkeypatch):
     pages = iter([
-        FakeResponse({"jobs_results": [RAW_JOB] * 10,
+        FakeResponse({"jobs_results": make_jobs(0, 10),
                       "serpapi_pagination": {"next_page_token": "page2"}}),
-        FakeResponse({"jobs_results": [RAW_JOB] * 10}),   # no token → last page
+        FakeResponse({"jobs_results": make_jobs(10, 10)}),   # no token → last page
     ])
     calls = []
 
@@ -84,6 +102,21 @@ def test_search_follows_pagination(monkeypatch):
     assert len(results) == 15                          # trimmed to num_results
     assert len(calls) == 2                             # 2 pages = 2 searches
     assert calls[1]["next_page_token"] == "page2"      # token passed to page 2
+
+
+def test_search_removes_duplicates(monkeypatch):
+    # Page 2 repeats job id3 from page 1 → it must appear only once
+    pages = iter([
+        FakeResponse({"jobs_results": make_jobs(0, 5),
+                      "serpapi_pagination": {"next_page_token": "page2"}}),
+        FakeResponse({"jobs_results": make_jobs(3, 1) + make_jobs(5, 3)}),
+    ])
+    monkeypatch.setattr(serp_tool.requests, "get", lambda url, params, timeout: next(pages))
+
+    results = search_google_jobs("ML Engineer", "Toronto", 10, api_key="fake", today=TODAY)
+
+    titles = [r["title"] for r in results]
+    assert len(titles) == len(set(titles)) == 8
 
 
 def test_search_raises_on_api_error(monkeypatch):

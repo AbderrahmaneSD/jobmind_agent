@@ -19,12 +19,14 @@ final = jobmind_graph.invoke(initial_state)
 print(f"Found {len(final['raw_listings'])} jobs, analyzed {len(final['analyses'])}\n")
 for a in final["analyses"]:
     l = a["listing"]
-    print(f"{a['total_score']:>3}/100  {l['title']} @ {l['company']}  "
-          f"[{a['urgency']}, posted {l['days_since_posted']}d ago, expired={a['is_expired']}]  "
-          f"apply={a['worth_applying']}")
+    days = l["days_since_posted"]
+    posted = f"posted {days}d ago" if days is not None else "date unknown"
+    print(f"{a['total_score']:>3}/100  {l['title']} @ {l['company']}  ({l['location']})")
+    print(f"         [{a['urgency']}, {posted}, expired={a['is_expired']}]  apply={a['worth_applying']}")
 print(f"\nShortlisted: {len(final['shortlist'])}   Applications: {len(final['applications'])}")
 
 if final["errors"]:
     print("\nErrors:")
     for err in final["errors"]:
         print(" -", err)
+        
